@@ -266,7 +266,7 @@ actor MCPService {
                     continuation.resume(throwing: MCPError.writeFailed(error.localizedDescription))
                 }
             }
-        } onCancel: { [weak self] in
+        } onCancel: { [weak self, id] in
             Task { await self?.cancelPendingRequest(id) }
         }
     }
