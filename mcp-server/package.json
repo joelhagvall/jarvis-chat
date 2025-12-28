@@ -1,0 +1,38 @@
+{
+  "name": "@system-monitor/mcp-server",
+  "version": "1.0.0",
+  "description": "Standalone MCP server with tools and agents - can be shared across different apps",
+  "type": "module",
+  "main": "dist/server.js",
+  "bin": {
+    "mcp-server": "./bin/server.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "start": "node dist/server.js",
+    "start:dev": "tsx src/server.ts"
+  },
+  "exports": {
+    ".": "./dist/server.js",
+    "./tools": "./dist/tools/index.js",
+    "./agents": "./dist/agents/index.js",
+    "./types": "./dist/types.js"
+  },
+  "files": [
+    "dist",
+    "bin"
+  ],
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.25.1",
+    "zod": "^3.25.0"
+  },
+  "optionalDependencies": {
+    "systeminformation": "^5.27.14"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0"
+  }
+}
