@@ -1,11 +1,17 @@
 import XCTest
+import SwiftData
 @testable import OllamaChat
 
 final class ChatMessageEntityTests: XCTestCase {
-    func testToolCallRoundTrip() {
-        let entity = ChatMessageEntity(role: "assistant", content: "result")
-        let toolCall = ToolCall(name: "myTool", arguments: ["key": "value"])
+    @MainActor
+    func testToolCallRoundTrip() throws {
+        let container = try makeInMemoryContainer()
+        let context = container.mainContext
 
+        let entity = ChatMessageEntity(role: "assistant", content: "result")
+        context.insert(entity)
+
+        let toolCall = ToolCall(name: "myTool", arguments: ["key": "value"])
         entity.setToolCall(toolCall)
 
         let decoded = entity.toolCall
@@ -13,8 +19,14 @@ final class ChatMessageEntityTests: XCTestCase {
         XCTAssertEqual(decoded?.arguments["key"], "value")
     }
 
-    func testToolCallNilWhenMissing() {
+    @MainActor
+    func testToolCallNilWhenMissing() throws {
+        let container = try makeInMemoryContainer()
+        let context = container.mainContext
+
         let entity = ChatMessageEntity(role: "assistant", content: "result")
+        context.insert(entity)
+
         XCTAssertNil(entity.toolCall)
     }
 }

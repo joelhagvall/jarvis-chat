@@ -21,3 +21,14 @@ func makeInMemoryStore() throws -> InMemoryStore {
     service.setModelContext(container.mainContext)
     return InMemoryStore(container: container, service: service)
 }
+
+@MainActor
+func makeInMemoryContainer() throws -> ModelContainer {
+    let schema = Schema([
+        ChatSession.self,
+        ChatMessageEntity.self,
+        AppSettingsEntity.self
+    ])
+    let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
+    return try ModelContainer(for: schema, configurations: [config])
+}
