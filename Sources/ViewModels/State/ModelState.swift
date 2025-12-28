@@ -9,8 +9,9 @@ final class ModelState: ObservableObject {
 
     func setModels(_ models: [OllamaModel]) {
         availableModels = models
-        if selectedModel.isEmpty, let first = models.first {
-            selectedModel = first.name
+        let hasSelected = models.contains { $0.name == selectedModel }
+        if selectedModel.isEmpty || !hasSelected {
+            selectedModel = models.first?.name ?? ""
         }
     }
 

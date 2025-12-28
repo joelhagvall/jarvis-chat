@@ -7,7 +7,7 @@ final class SettingsState: ObservableObject {
     @Published var userName: String = ""
     @Published var systemPrompt: String = ""
     @Published var language: String = "auto"
-    @Published var thinkingEnabled: Bool = false
+    @Published var thinkingEnabled: Bool = true
     @Published var mcpEnabled: Bool = true
     @Published var mcpServerPath: String = ""
 
@@ -15,6 +15,8 @@ final class SettingsState: ObservableObject {
         userName = settings.userName
         systemPrompt = settings.systemPrompt
         language = settings.language
+        thinkingEnabled = settings.thinkingEnabled ?? true
+        mcpEnabled = settings.mcpEnabled ?? true
         mcpServerPath = settings.mcpServerPath
     }
 }

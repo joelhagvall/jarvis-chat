@@ -4,6 +4,7 @@ import SwiftUI
 struct MarkdownText: View {
     let content: String
     let color: Color
+    @State private var renderedContent: AttributedString = AttributedString("")
 
     init(_ content: String, color: Color = .white) {
         self.content = content
@@ -11,11 +12,17 @@ struct MarkdownText: View {
     }
 
     var body: some View {
-        Text(attributedContent)
+        Text(renderedContent)
             .textSelection(.enabled)
+            .onAppear {
+                renderedContent = render(content: content)
+            }
+            .onChange(of: content) { _, _ in
+                renderedContent = render(content: content)
+            }
     }
 
-    private var attributedContent: AttributedString {
+    private func render(content: String) -> AttributedString {
         do {
             var attributed = try AttributedString(markdown: content, options: .init(
                 allowsExtendedAttributes: true,

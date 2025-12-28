@@ -1,12 +1,21 @@
 import Foundation
+import OSLog
 
 actor MCPService {
+    private struct PendingRequest {
+        let continuation: CheckedContinuation<JSONRPCResponse, Error>
+        let timeoutTask: Task<Void, Never>
+    }
+
+    private let logger = Logger(subsystem: "OllamaChat", category: "MCPService")
+    private let requestTimeoutNanoseconds: UInt64 = 15_000_000_000
+
     private var process: Process?
     private var stdin: FileHandle?
     private var stdout: FileHandle?
     private var stderr: FileHandle?
     private var requestId = 0
-    private var pendingRequests: [Int: CheckedContinuation<JSONRPCResponse, Error>] = [:]
+    private var pendingRequests: [Int: PendingRequest] = [:]
     private var readTask: Task<Void, Never>?
     private var cachedTools: [MCPTool] = []
 
@@ -44,7 +53,7 @@ actor MCPService {
         stdout = nil
         stderr = nil
         cachedTools = []
-        pendingRequests.removeAll()
+        failAllPending(MCPError.notConnected)
     }
 
     // MARK: - Tool Operations
@@ -235,15 +244,30 @@ actor MCPService {
         var data = try JSONSerialization.data(withJSONObject: request)
         data.append(contentsOf: "\n".utf8)
 
-        return try await withCheckedThrowingContinuation { continuation in
-            pendingRequests[id] = continuation
+        return try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { continuation in
+                let timeout = requestTimeoutNanoseconds
+                let timeoutTask = Task { [weak self] in
+                    do {
+                        try await Task.sleep(nanoseconds: timeout)
+                    } catch {
+                        return
+                    }
+                    await self?.timeoutRequest(id: id)
+                }
 
-            do {
-                try stdin.write(contentsOf: data)
-            } catch {
-                pendingRequests.removeValue(forKey: id)
-                continuation.resume(throwing: MCPError.writeFailed(error.localizedDescription))
+                pendingRequests[id] = PendingRequest(continuation: continuation, timeoutTask: timeoutTask)
+
+                do {
+                    try stdin.write(contentsOf: data)
+                } catch {
+                    let pending = pendingRequests.removeValue(forKey: id)
+                    pending?.timeoutTask.cancel()
+                    continuation.resume(throwing: MCPError.writeFailed(error.localizedDescription))
+                }
             }
+        } onCancel: { [weak self] in
+            Task { await self?.cancelPendingRequest(id) }
         }
     }
 
@@ -263,26 +287,39 @@ actor MCPService {
         try stdin.write(contentsOf: data)
     }
 
+    private func timeoutRequest(id: Int) {
+        guard let pending = pendingRequests.removeValue(forKey: id) else { return }
+        pending.timeoutTask.cancel()
+        pending.continuation.resume(throwing: MCPError.timeout)
+    }
+
+    private func cancelPendingRequest(_ id: Int) {
+        guard let pending = pendingRequests.removeValue(forKey: id) else { return }
+        pending.timeoutTask.cancel()
+        pending.continuation.resume(throwing: CancellationError())
+    }
+
+    private func failAllPending(_ error: Error) {
+        let pending = pendingRequests
+        pendingRequests.removeAll()
+        for (_, request) in pending {
+            request.timeoutTask.cancel()
+            request.continuation.resume(throwing: error)
+        }
+    }
+
     private func startReadingResponses() {
+        readTask?.cancel()
+        guard let stdout else { return }
+
         readTask = Task { [weak self] in
-            guard let stdout = await self?.stdout else { return }
-
-            while !Task.isCancelled {
-                autoreleasepool {
-                    let data = stdout.availableData
-                    guard !data.isEmpty else { return }
-
-                    if let string = String(data: data, encoding: .utf8) {
-                        let lines = string.components(separatedBy: "\n")
-                        for line in lines where !line.isEmpty {
-                            Task {
-                                await self?.handleResponse(line)
-                            }
-                        }
-                    }
+            do {
+                for try await line in stdout.bytes.lines {
+                    guard !line.isEmpty else { continue }
+                    await self?.handleResponse(line)
                 }
-
-                try? await Task.sleep(nanoseconds: 10_000_000) // 10ms
+            } catch {
+                await self?.handleReadError(error)
             }
         }
     }
@@ -293,12 +330,18 @@ actor MCPService {
         do {
             let response = try JSONDecoder().decode(JSONRPCResponse.self, from: data)
 
-            if let id = response.id, let continuation = pendingRequests.removeValue(forKey: id) {
-                continuation.resume(returning: response)
+            if let id = response.id, let pending = pendingRequests.removeValue(forKey: id) {
+                pending.timeoutTask.cancel()
+                pending.continuation.resume(returning: response)
             }
         } catch {
-            print("MCP: Failed to decode response: \(error)")
+            logger.error("Failed to decode response: \(error.localizedDescription)")
         }
+    }
+
+    private func handleReadError(_ error: Error) {
+        if error is CancellationError { return }
+        logger.error("MCP read failed: \(error.localizedDescription)")
     }
 }
 

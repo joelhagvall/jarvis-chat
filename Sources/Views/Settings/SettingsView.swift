@@ -28,6 +28,7 @@ struct SettingsView: View {
                     .font(JarvisTheme.Typography.title())
                     .foregroundStyle(JarvisTheme.Colors.blue)
                     .tracking(3)
+                    .accessibilityIdentifier("settingsTitle")
             }
 
             Spacer()
@@ -36,6 +37,7 @@ struct SettingsView: View {
                 viewModel.saveSettings()
                 dismiss()
             }
+            .accessibilityIdentifier("saveSettingsButton")
         }
         .padding(JarvisTheme.Spacing.xl)
     }

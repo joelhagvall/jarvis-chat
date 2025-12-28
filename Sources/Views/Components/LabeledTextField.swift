@@ -9,6 +9,7 @@ struct LabeledTextField: View {
     var minHeight: CGFloat? = nil
     var fontSize: CGFloat = 13
     var cornerRadius: CGFloat = JarvisTheme.CornerRadius.small
+    var accessibilityId: String? = nil
 
     var body: some View {
         VStack(alignment: .leading, spacing: JarvisTheme.Spacing.xs) {
@@ -26,6 +27,7 @@ struct LabeledTextField: View {
                     cornerRadius: cornerRadius,
                     borderOpacity: JarvisTheme.Opacity.medium
                 )
+                .accessibilityIdentifier(accessibilityId ?? label.lowercased().replacingOccurrences(of: " ", with: ""))
         }
     }
 }

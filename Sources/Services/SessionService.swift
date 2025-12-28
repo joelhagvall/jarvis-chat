@@ -1,9 +1,11 @@
 import Foundation
+import OSLog
 import SwiftData
 
 /// Service responsible for managing chat sessions
 @MainActor
 final class SessionService {
+    private let logger = Logger(subsystem: "OllamaChat", category: "SessionService")
     private var modelContext: ModelContext?
 
     func setModelContext(_ context: ModelContext) {
@@ -18,14 +20,25 @@ final class SessionService {
         let descriptor = FetchDescriptor<ChatSession>(
             sortBy: [SortDescriptor(\.updatedAt, order: .reverse)]
         )
-        return (try? modelContext.fetch(descriptor)) ?? []
+        do {
+            return try modelContext.fetch(descriptor)
+        } catch {
+            logger.error("Failed to fetch sessions: \(error.localizedDescription)")
+            return []
+        }
     }
 
     func fetchSettings() -> AppSettingsEntity? {
         guard let modelContext else { return nil }
 
-        let descriptor = FetchDescriptor<AppSettingsEntity>()
-        return try? modelContext.fetch(descriptor).first
+        var descriptor = FetchDescriptor<AppSettingsEntity>()
+        descriptor.fetchLimit = 1
+        do {
+            return try modelContext.fetch(descriptor).first
+        } catch {
+            logger.error("Failed to fetch settings: \(error.localizedDescription)")
+            return nil
+        }
     }
 
     // MARK: - Session Operations
@@ -72,10 +85,11 @@ final class SessionService {
         content: String,
         session: ChatSession
     ) -> ChatMessageEntity {
+        let nextIndex = (session.messages.map(\.orderIndex).max() ?? -1) + 1
         let entity = ChatMessageEntity(
             role: role,
             content: content,
-            orderIndex: session.messages.count
+            orderIndex: nextIndex
         )
         entity.session = session
         session.messages.append(entity)
@@ -84,6 +98,7 @@ final class SessionService {
 
     func deleteMessage(_ entity: ChatMessageEntity) {
         modelContext?.delete(entity)
+        save()
     }
 
     func clearMessages(in session: ChatSession) {
@@ -108,24 +123,33 @@ final class SessionService {
         userName: String,
         systemPrompt: String,
         language: String,
+        thinkingEnabled: Bool,
+        mcpEnabled: Bool,
         selectedModel: String,
         mcpServerPath: String
     ) {
         guard let modelContext else { return }
 
-        let descriptor = FetchDescriptor<AppSettingsEntity>()
+        var descriptor = FetchDescriptor<AppSettingsEntity>()
+        descriptor.fetchLimit = 1
         let settings: AppSettingsEntity
-
-        if let existing = try? modelContext.fetch(descriptor).first {
-            settings = existing
-        } else {
-            settings = AppSettingsEntity()
-            modelContext.insert(settings)
+        do {
+            if let existing = try modelContext.fetch(descriptor).first {
+                settings = existing
+            } else {
+                settings = AppSettingsEntity()
+                modelContext.insert(settings)
+            }
+        } catch {
+            logger.error("Failed to fetch settings for save: \(error.localizedDescription)")
+            return
         }
 
         settings.userName = userName
         settings.systemPrompt = systemPrompt
         settings.language = language
+        settings.thinkingEnabled = thinkingEnabled
+        settings.mcpEnabled = mcpEnabled
         settings.selectedModel = selectedModel
         settings.mcpServerPath = mcpServerPath
 
@@ -134,7 +158,15 @@ final class SessionService {
 
     // MARK: - Private
 
-    func save() {
-        try? modelContext?.save()
+    @discardableResult
+    func save() -> Bool {
+        guard let modelContext else { return false }
+        do {
+            try modelContext.save()
+            return true
+        } catch {
+            logger.error("Failed to save SwiftData context: \(error.localizedDescription)")
+            return false
+        }
     }
 }

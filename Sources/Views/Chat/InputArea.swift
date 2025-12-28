@@ -5,7 +5,7 @@ struct InputArea: View {
     var isMessageFieldFocused: FocusState<Bool>.Binding
 
     var body: some View {
-        HStack(alignment: .bottom, spacing: JarvisTheme.Spacing.md) {
+        HStack(alignment: .center, spacing: JarvisTheme.Spacing.md) {
             inputField
             sendButton
         }
@@ -21,6 +21,7 @@ struct InputArea: View {
             .jarvisTextField(isFocused: isMessageFieldFocused.wrappedValue)
             .frame(minHeight: 32, maxHeight: 80)
             .focused(isMessageFieldFocused)
+            .accessibilityIdentifier("chatInput")
             .onSubmit {
                 sendMessage()
             }
@@ -45,6 +46,7 @@ struct InputArea: View {
             }
         }
         .buttonStyle(.plain)
+        .accessibilityIdentifier("sendButton")
         .disabled(isDisabled)
         .opacity(isDisabled ? 0.4 : 1)
     }
@@ -69,6 +71,6 @@ struct InputArea: View {
 
     private func sendMessage() {
         guard !viewModel.chat.inputText.trimmingCharacters(in: .whitespaces).isEmpty || viewModel.chat.isLoading else { return }
-        Task { await viewModel.sendMessage() }
+        viewModel.sendMessage()
     }
 }

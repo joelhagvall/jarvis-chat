@@ -11,6 +11,10 @@ let package = Package(
         .executableTarget(
             name: "OllamaChat",
             path: "Sources"
+        ),
+        .testTarget(
+            name: "OllamaChatTests",
+            dependencies: ["OllamaChat"]
         )
     ]
 )

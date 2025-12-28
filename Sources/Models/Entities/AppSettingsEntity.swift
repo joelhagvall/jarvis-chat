@@ -7,6 +7,8 @@ final class AppSettingsEntity {
     var userName: String
     var systemPrompt: String
     var language: String
+    var thinkingEnabled: Bool?
+    var mcpEnabled: Bool?
     var selectedModel: String
     var mcpServerPath: String
 
@@ -15,6 +17,8 @@ final class AppSettingsEntity {
         userName: String = "",
         systemPrompt: String = "",
         language: String = "auto",
+        thinkingEnabled: Bool = true,
+        mcpEnabled: Bool = true,
         selectedModel: String = "",
         mcpServerPath: String = ""
     ) {
@@ -22,6 +26,8 @@ final class AppSettingsEntity {
         self.userName = userName
         self.systemPrompt = systemPrompt
         self.language = language
+        self.thinkingEnabled = thinkingEnabled
+        self.mcpEnabled = mcpEnabled
         self.selectedModel = selectedModel
         self.mcpServerPath = mcpServerPath
     }

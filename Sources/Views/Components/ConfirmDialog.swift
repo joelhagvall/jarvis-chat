@@ -47,6 +47,7 @@ struct ConfirmDialog: View {
             .font(JarvisTheme.Typography.mono(11))
             .foregroundStyle(Color.white.opacity(JarvisTheme.Opacity.prominent))
             .buttonStyle(.plain)
+            .accessibilityIdentifier("confirmDialogCancel")
 
             Spacer()
 
@@ -62,6 +63,7 @@ struct ConfirmDialog: View {
                     .stroke(Color.red.opacity(JarvisTheme.Opacity.strong), lineWidth: 1)
             )
             .buttonStyle(.plain)
+            .accessibilityIdentifier("confirmDialogConfirm")
         }
     }
 }

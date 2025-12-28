@@ -43,6 +43,7 @@ struct MCPSection: View {
         .toggleStyle(.switch)
         .tint(JarvisTheme.Colors.blue)
         .onChange(of: viewModel.settings.mcpEnabled) { _, enabled in
+            viewModel.saveSettings()
             Task {
                 if enabled {
                     await viewModel.connectMCP()

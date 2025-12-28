@@ -18,6 +18,7 @@ final class ChatState: ObservableObject {
         isLoading = true
         errorMessage = nil
         currentToolName = nil
+        clearStreaming()
     }
 
     func clearStreaming() {
@@ -31,7 +32,10 @@ final class ChatState: ObservableObject {
     }
 
     func removeLastEmptyMessage() {
-        if let last = messages.last, last.content.isEmpty {
+        if let last = messages.last,
+           last.content.isEmpty,
+           last.toolCall == nil,
+           (last.thinking?.isEmpty ?? true) {
             messages.removeLast()
         }
     }

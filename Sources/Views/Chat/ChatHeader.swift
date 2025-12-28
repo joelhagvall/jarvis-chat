@@ -34,6 +34,7 @@ struct ChatHeader: View {
                     .font(JarvisTheme.Typography.heading())
                     .foregroundStyle(viewModel.chat.isLoading ? JarvisTheme.Colors.gold : JarvisTheme.Colors.blue)
                     .tracking(2)
+                    .accessibilityIdentifier("statusText")
             }
         }
     }
@@ -41,7 +42,10 @@ struct ChatHeader: View {
     // MARK: - Thinking Toggle
 
     private var thinkingToggle: some View {
-        Button(action: { viewModel.settings.thinkingEnabled.toggle() }) {
+        Button(action: {
+            viewModel.settings.thinkingEnabled.toggle()
+            viewModel.saveSettings()
+        }) {
             HStack(spacing: 6) {
                 Image(systemName: "brain.head.profile")
                     .font(.system(size: 12))
@@ -64,6 +68,7 @@ struct ChatHeader: View {
             )
         }
         .buttonStyle(.plain)
+        .accessibilityIdentifier("thinkingToggle")
         .help("Enable thinking mode (for Qwen3, DeepSeek, etc.)")
     }
 
@@ -102,6 +107,7 @@ struct ChatHeader: View {
                 .foregroundStyle(JarvisTheme.Colors.blue.opacity(JarvisTheme.Opacity.prominent))
         }
         .buttonStyle(.plain)
+        .accessibilityIdentifier("clearChatButton")
         .help("Clear session")
         .disabled(viewModel.chat.messages.isEmpty)
         .opacity(viewModel.chat.messages.isEmpty ? 0.3 : 1)

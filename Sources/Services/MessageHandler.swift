@@ -1,8 +1,33 @@
 import Foundation
 
+@MainActor
+protocol MessageHandling {
+    func buildOllamaMessages(systemPrompt: String, messages: [ChatMessage]) -> [OllamaMessage]
+    func ensureOllamaRunning() async throws
+    func send(
+        model: String,
+        messages: [OllamaMessage],
+        tools: [OllamaTool]?,
+        thinkingEnabled: Bool,
+        onChunk: @escaping (String) -> Void,
+        onThinking: @escaping (String) -> Void,
+        onToolCall: @escaping (OllamaToolCall) -> Void
+    ) async throws
+    func sendFollowUp(
+        model: String,
+        messages: [OllamaMessage],
+        toolName: String,
+        toolResult: String,
+        thinkingEnabled: Bool,
+        onChunk: @escaping (String) -> Void,
+        onThinking: @escaping (String) -> Void
+    ) async throws
+    func loadModels() async throws -> [OllamaModel]
+}
+
 /// Handles message sending and tool call processing
 @MainActor
-final class MessageHandler {
+final class MessageHandler: MessageHandling {
     private let ollamaService = OllamaService()
 
     // MARK: - Message Building
@@ -17,6 +42,10 @@ final class MessageHandler {
         ollamaMessages += messages.map { OllamaMessage(role: $0.role, content: $0.content) }
 
         return ollamaMessages
+    }
+
+    func ensureOllamaRunning() async throws {
+        try await ollamaService.ensureRunning()
     }
 
     // MARK: - Sending

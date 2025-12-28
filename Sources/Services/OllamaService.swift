@@ -1,7 +1,94 @@
 import Foundation
 
+// MARK: - Process Launching Protocol
+
+protocol ProcessLaunching: Sendable {
+    func launchOllamaServe() throws
+}
+
+final class SystemProcessLauncher: ProcessLaunching {
+    func launchOllamaServe() throws {
+        let process = Process()
+        
+        // Common paths for Ollama
+        let paths = [
+            "/usr/local/bin/ollama",
+            "/opt/homebrew/bin/ollama",
+            "/usr/bin/ollama"
+        ]
+        
+        // Try to find executable in common paths
+        if let path = paths.first(where: { FileManager.default.fileExists(atPath: $0) }) {
+            process.executableURL = URL(fileURLWithPath: path)
+            process.arguments = ["serve"]
+        } else {
+            // Fallback to env which relies on PATH
+            process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
+            process.arguments = ["ollama", "serve"]
+        }
+
+        process.standardOutput = FileHandle.nullDevice
+        process.standardError = FileHandle.nullDevice
+        
+        try process.run()
+    }
+}
+
+// MARK: - Health Checking Protocol
+
+protocol HealthChecking: Sendable {
+    func checkOllamaHealth() async -> Bool
+}
+
+final class HTTPHealthChecker: HealthChecking {
+    private let baseURL: String
+    private let session: URLSession
+
+    init(baseURL: String = "http://127.0.0.1:11434", session: URLSession? = nil) {
+        self.baseURL = baseURL
+        self.session = session ?? {
+            let config = URLSessionConfiguration.default
+            config.timeoutIntervalForRequest = 5
+            return URLSession(configuration: config)
+        }()
+    }
+
+    func checkOllamaHealth() async -> Bool {
+        guard let url = URL(string: "\(baseURL)/api/tags") else {
+            return false
+        }
+
+        do {
+            let (_, response) = try await session.data(from: url)
+            if let httpResponse = response as? HTTPURLResponse {
+                return httpResponse.statusCode == 200
+            }
+        } catch {
+            // Connection failed, Ollama is not running
+        }
+        return false
+    }
+}
+
+// MARK: - OllamaService
+
 actor OllamaService {
     private let baseURL = "http://127.0.0.1:11434"
+    private let session: URLSession
+    private let processLauncher: ProcessLaunching
+    private let healthChecker: HealthChecking
+
+    init(
+        processLauncher: ProcessLaunching = SystemProcessLauncher(),
+        healthChecker: HealthChecking? = nil
+    ) {
+        let config = URLSessionConfiguration.default
+        config.timeoutIntervalForRequest = 30
+        config.timeoutIntervalForResource = 60
+        self.session = URLSession(configuration: config)
+        self.processLauncher = processLauncher
+        self.healthChecker = healthChecker ?? HTTPHealthChecker(baseURL: "http://127.0.0.1:11434")
+    }
 
     // MARK: - Lifecycle
 
@@ -11,7 +98,7 @@ actor OllamaService {
             return
         }
 
-        try await startOllama()
+        try startOllama()
 
         // Wait for Ollama to be ready (max 10 seconds)
         for _ in 0..<20 {
@@ -31,7 +118,7 @@ actor OllamaService {
             throw OllamaError.invalidURL
         }
 
-        let (data, response) = try await URLSession.shared.data(from: url)
+        let (data, response) = try await session.data(from: url)
 
         guard let httpResponse = response as? HTTPURLResponse,
               httpResponse.statusCode == 200 else {
@@ -69,7 +156,7 @@ actor OllamaService {
 
         request.httpBody = try JSONEncoder().encode(chatRequest)
 
-        let (bytes, response) = try await URLSession.shared.bytes(for: request)
+        let (bytes, response) = try await session.bytes(for: request)
 
         guard let httpResponse = response as? HTTPURLResponse,
               httpResponse.statusCode == 200 else {
@@ -98,6 +185,10 @@ actor OllamaService {
                         await onToolCall(toolCall)
                     }
                 }
+
+                if chunk.done == true {
+                    break
+                }
             }
         }
     }
@@ -105,30 +196,12 @@ actor OllamaService {
     // MARK: - Private Methods
 
     private func isRunning() async -> Bool {
-        guard let url = URL(string: "\(baseURL)/api/tags") else {
-            return false
-        }
-
-        do {
-            let (_, response) = try await URLSession.shared.data(from: url)
-            if let httpResponse = response as? HTTPURLResponse {
-                return httpResponse.statusCode == 200
-            }
-        } catch {
-            // Connection failed, Ollama is not running
-        }
-        return false
+        await healthChecker.checkOllamaHealth()
     }
 
-    private func startOllama() async throws {
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
-        process.arguments = ["ollama", "serve"]
-        process.standardOutput = FileHandle.nullDevice
-        process.standardError = FileHandle.nullDevice
-
+    private func startOllama() throws {
         do {
-            try process.run()
+            try processLauncher.launchOllamaServe()
         } catch {
             throw OllamaError.failedToStart
         }

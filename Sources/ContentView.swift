@@ -5,10 +5,14 @@ import AppKit
 // MARK: - Main Content View
 
 struct ContentView: View {
-    @StateObject private var viewModel = ChatViewModel.shared
+    @StateObject private var viewModel = ChatViewModel()
     @Environment(\.modelContext) private var modelContext
     @State private var showSettings = false
     @State private var confirmAction: ConfirmAction?
+    private var isUITesting: Bool {
+        ProcessInfo.processInfo.arguments.contains("-ui-testing") ||
+            ProcessInfo.processInfo.environment["UITESTS"] == "1"
+    }
 
     var body: some View {
         ZStack {
@@ -26,6 +30,8 @@ struct ContentView: View {
                 viewModel.setModelContext(modelContext)
             }
             .task {
+                guard !isUITesting else { return }
+                await viewModel.ensureOllamaRunning()
                 await viewModel.loadModels()
             }
 

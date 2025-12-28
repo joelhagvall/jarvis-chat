@@ -2,13 +2,16 @@ import SwiftUI
 
 struct MessageBubble: View {
     let message: ChatMessage
+    private static let timeFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "HH:mm"
+        return formatter
+    }()
 
     private var isUser: Bool { message.role == "user" }
 
     private var formattedTime: String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "HH:mm"
-        return formatter.string(from: message.timestamp)
+        MessageBubble.timeFormatter.string(from: message.timestamp)
     }
 
     var body: some View {

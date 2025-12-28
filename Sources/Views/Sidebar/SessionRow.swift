@@ -9,6 +9,12 @@ struct SessionRow: View {
     @State private var isEditing = false
     @State private var editedTitle = ""
     @State private var isHovering = false
+    @FocusState private var isTitleFieldFocused: Bool
+
+    private var isUITesting: Bool {
+        ProcessInfo.processInfo.arguments.contains("-ui-testing") ||
+            ProcessInfo.processInfo.environment["UITESTS"] == "1"
+    }
 
     private var formattedDate: String {
         let formatter = DateFormatter()
@@ -41,6 +47,11 @@ struct SessionRow: View {
                 .textFieldStyle(.plain)
                 .font(JarvisTheme.Typography.mono(12))
                 .foregroundStyle(JarvisTheme.Colors.blue)
+                .focused($isTitleFieldFocused)
+                .accessibilityIdentifier("renameSessionTextField")
+                .onAppear {
+                    isTitleFieldFocused = true
+                }
             } else {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(session.title)
@@ -56,7 +67,7 @@ struct SessionRow: View {
 
             Spacer()
 
-            if isHovering && !isEditing {
+            if (isHovering || isUITesting) && !isEditing {
                 HStack(spacing: 4) {
                     Button(action: {
                         editedTitle = session.title
@@ -67,6 +78,7 @@ struct SessionRow: View {
                             .foregroundStyle(JarvisTheme.Colors.blue.opacity(0.7))
                     }
                     .buttonStyle(.plain)
+                    .accessibilityIdentifier("renameSessionButton")
 
                     Button(action: onDelete) {
                         Image(systemName: "trash")
@@ -74,6 +86,7 @@ struct SessionRow: View {
                             .foregroundStyle(Color.red.opacity(0.7))
                     }
                     .buttonStyle(.plain)
+                    .accessibilityIdentifier("deleteSessionButton")
                 }
             }
         }
@@ -91,5 +104,6 @@ struct SessionRow: View {
         .onHover { hovering in
             isHovering = hovering
         }
+        .accessibilityIdentifier("sessionRow_\(session.id.uuidString)")
     }
 }

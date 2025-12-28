@@ -5,26 +5,31 @@ import Combine
 
 @MainActor
 final class ChatViewModel: ObservableObject {
-    static let shared = ChatViewModel()
-
     // MARK: - State Objects
 
     var chat = ChatState()
     var session = SessionState()
     var settings = SettingsState()
     var model = ModelState()
-    var mcp = MCPCoordinator()
+    var mcp: MCPCoordinator
 
     // MARK: - Services
 
-    private let sessionService = SessionService()
-    private let messageHandler = MessageHandler()
+    private let sessionService: SessionService
+    private let messageHandler: MessageHandling
     private var currentTask: Task<Void, Never>?
     private var cancellables = Set<AnyCancellable>()
 
     // MARK: - Init
 
-    private init() {
+    init(
+        sessionService: SessionService? = nil,
+        messageHandler: MessageHandling? = nil,
+        mcpCoordinator: MCPCoordinator? = nil
+    ) {
+        self.sessionService = sessionService ?? SessionService()
+        self.messageHandler = messageHandler ?? MessageHandler()
+        self.mcp = mcpCoordinator ?? MCPCoordinator()
         setupBindings()
     }
 
@@ -58,6 +63,14 @@ final class ChatViewModel: ObservableObject {
         }
     }
 
+    func ensureOllamaRunning() async {
+        do {
+            try await messageHandler.ensureOllamaRunning()
+        } catch {
+            chat.setError(error)
+        }
+    }
+
     func loadModels() async {
         do {
             model.setModels(try await messageHandler.loadModels())
@@ -87,28 +100,50 @@ final class ChatViewModel: ObservableObject {
 
     // MARK: - Messaging
 
-    func sendMessage() async {
+    func sendMessage() {
         let text = chat.inputText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !text.isEmpty, !chat.isLoading else { return }
+
+        if chat.isLoading {
+            cancelCurrentTask()
+            return
+        }
+
+        guard !text.isEmpty else { return }
+        guard !model.selectedModel.isEmpty else {
+            chat.errorMessage = "No model selected. Load models first."
+            return
+        }
 
         cancelCurrentTask()
         chat.reset()
 
-        guard let currentSession = ensureActiveSession() else { return }
+        guard let currentSession = ensureActiveSession() else {
+            chat.isLoading = false
+            return
+        }
         let activeSessionId = currentSession.id
 
         let userEntity = sessionService.createMessage(role: "user", content: text, session: currentSession)
         chat.messages.append(ChatMessage(from: userEntity))
+        sessionService.save()
 
         let assistantEntity = sessionService.createMessage(role: "assistant", content: "", session: currentSession)
 
-        do {
-            try await processMessage(session: currentSession, activeSessionId: activeSessionId, assistantEntity: assistantEntity)
-        } catch {
-            handleError(error, assistantEntity: assistantEntity)
-        }
+        currentTask = Task { [weak self] in
+            guard let self else { return }
+            defer {
+                self.chat.isLoading = false
+                self.currentTask = nil
+            }
 
-        chat.isLoading = false
+            do {
+                try await self.processMessage(session: currentSession, activeSessionId: activeSessionId, assistantEntity: assistantEntity)
+            } catch is CancellationError {
+                self.handleCancellation(assistantEntity)
+            } catch {
+                self.handleError(error, assistantEntity: assistantEntity)
+            }
+        }
     }
 
     // MARK: - Session Management
@@ -154,6 +189,8 @@ final class ChatViewModel: ObservableObject {
             userName: settings.userName,
             systemPrompt: settings.systemPrompt,
             language: settings.language,
+            thinkingEnabled: settings.thinkingEnabled,
+            mcpEnabled: settings.mcpEnabled,
             selectedModel: model.selectedModel,
             mcpServerPath: settings.mcpServerPath
         )
@@ -174,6 +211,7 @@ final class ChatViewModel: ObservableObject {
         chat.isLoading = false
         chat.isThinking = false
         chat.currentToolName = nil
+        chat.clearStreaming()
     }
 
     private func processMessage(session s: ChatSession, activeSessionId: UUID, assistantEntity: ChatMessageEntity) async throws {
@@ -197,6 +235,7 @@ final class ChatViewModel: ObservableObject {
         )
 
         chat.isThinking = false
+        try Task.checkCancellation()
 
         if let toolCall = toolCallToProcess {
             try await processToolCall(toolCall, handler: handler, assistantEntity: assistantEntity, session: s, activeSessionId: activeSessionId, ollamaMessages: ollamaMessages)
@@ -213,6 +252,7 @@ final class ChatViewModel: ObservableObject {
         chat.currentToolName = toolCall.function.name
 
         let toolResult = await mcp.execute(name: toolCall.function.name, arguments: toolCall.function.arguments ?? [:])
+        try Task.checkCancellation()
 
         saveToolCallMessage(handler: handler, toolCall: toolCall, entity: assistantEntity)
 
@@ -229,6 +269,7 @@ final class ChatViewModel: ObservableObject {
             onThinking: followUpHandler.onThinking
         )
 
+        try Task.checkCancellation()
         finalizeResponse(content: followUpHandler.rawContent, thinking: followUpHandler.hasThinking ? followUpHandler.fullThinking : nil, entity: finalEntity)
     }
 
@@ -240,7 +281,7 @@ final class ChatViewModel: ObservableObject {
         }
         entity.thinking = handler.hasThinking ? handler.fullThinking : nil
         chat.messages.append(ChatMessage(from: entity))
-        chat.currentStreamingText = ""
+        chat.clearStreaming()
     }
 
     private func finalizeResponse(content: String, thinking: String?, entity: ChatMessageEntity) {
@@ -253,6 +294,29 @@ final class ChatViewModel: ObservableObject {
     private func handleError(_ error: Error, assistantEntity: ChatMessageEntity) {
         chat.setError(error)
         chat.removeLastEmptyMessage()
-        sessionService.deleteMessage(assistantEntity)
+        chat.clearStreaming()
+        chat.currentToolName = nil
+        if shouldDelete(assistantEntity) {
+            sessionService.deleteMessage(assistantEntity)
+        } else {
+            sessionService.save()
+        }
+    }
+
+    private func handleCancellation(_ assistantEntity: ChatMessageEntity) {
+        chat.clearStreaming()
+        chat.currentToolName = nil
+        if shouldDelete(assistantEntity) {
+            sessionService.deleteMessage(assistantEntity)
+        } else {
+            sessionService.save()
+        }
+    }
+
+    private func shouldDelete(_ entity: ChatMessageEntity) -> Bool {
+        let hasContent = !entity.content.isEmpty
+        let hasToolCall = entity.toolCallName != nil
+        let hasThinking = !(entity.thinking ?? "").isEmpty
+        return !(hasContent || hasToolCall || hasThinking)
     }
 }

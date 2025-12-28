@@ -12,6 +12,7 @@ protocol Tool {
 
 // MARK: - Tool Registry
 
+@MainActor
 final class ToolRegistry {
     static let shared = ToolRegistry()
 

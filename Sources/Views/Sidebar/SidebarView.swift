@@ -54,6 +54,7 @@ struct SidebarView: View {
             )
         }
         .buttonStyle(.plain)
+        .accessibilityIdentifier("newSessionButton")
         .padding(.horizontal, JarvisTheme.Spacing.md)
         .padding(.vertical, JarvisTheme.Spacing.sm)
     }
@@ -102,6 +103,7 @@ struct SidebarView: View {
             .padding(.vertical, 10)
         }
         .buttonStyle(.plain)
+        .accessibilityIdentifier("openSettingsButton")
         .padding(.horizontal, JarvisTheme.Spacing.md)
         .padding(.bottom, JarvisTheme.Spacing.sm)
     }

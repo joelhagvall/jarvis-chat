@@ -1,0 +1,50 @@
+name: OllamaChat
+options:
+  bundleIdPrefix: com.ollamachat
+settings:
+  base:
+    SWIFT_VERSION: 5.9
+    MACOSX_DEPLOYMENT_TARGET: "14.0"
+    CODE_SIGN_STYLE: Automatic
+targets:
+  OllamaChat:
+    type: application
+    platform: macOS
+    sources:
+      - path: Sources
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.ollamachat.app
+    info:
+      path: Xcode/OllamaChat-Info.plist
+      properties:
+        CFBundleDisplayName: $(PRODUCT_NAME)
+        CFBundleIdentifier: $(PRODUCT_BUNDLE_IDENTIFIER)
+        CFBundleShortVersionString: 1.0
+        CFBundleVersion: 1
+        LSMinimumSystemVersion: "14.0"
+        NSPrincipalClass: NSApplication
+  OllamaChatUITests:
+    type: bundle.ui-testing
+    platform: macOS
+    sources:
+      - path: UITests
+    dependencies:
+      - target: OllamaChat
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.ollamachat.app.uitests
+    info:
+      path: Xcode/OllamaChat-UITests-Info.plist
+      properties:
+        CFBundleIdentifier: $(PRODUCT_BUNDLE_IDENTIFIER)
+        CFBundleShortVersionString: 1.0
+        CFBundleVersion: 1
+schemes:
+  OllamaChat:
+    build:
+      targets:
+        OllamaChat: all
+    test:
+      targets:
+        - OllamaChatUITests
