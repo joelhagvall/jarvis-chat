@@ -266,9 +266,7 @@ actor MCPService {
                     continuation.resume(throwing: MCPError.writeFailed(error.localizedDescription))
                 }
             }
-        } onCancel: { [weak self, id] in
-            Task { await self?.cancelPendingRequest(id) }
-        }
+        } onCancel: { }
     }
 
     private func sendNotification(method: String) async throws {
