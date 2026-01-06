@@ -5,7 +5,7 @@ import SwiftUI
 @MainActor
 final class SettingsState: ObservableObject {
     @Published var userName: String = ""
-    @Published var systemPrompt: String = ""
+    @Published var systemPrompt: String = "You're JARVIS from Iron Man."
     @Published var language: String = "auto"
     @Published var thinkingEnabled: Bool = true
     @Published var mcpEnabled: Bool = true

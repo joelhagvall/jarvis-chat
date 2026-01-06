@@ -15,7 +15,7 @@ final class AppSettingsEntity {
     init(
         id: String = "default",
         userName: String = "",
-        systemPrompt: String = "",
+        systemPrompt: String = "You're JARVIS from Iron Man.",
         language: String = "auto",
         thinkingEnabled: Bool = true,
         mcpEnabled: Bool = true,

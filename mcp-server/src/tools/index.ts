@@ -6,6 +6,8 @@ import { randomFactTool } from './random-fact.js';
 import { notionTool } from './notion.js';
 import { systemInfoTool } from './system-info.js';
 import { runAgentTool } from './run-agent.js';
+import { slDeparturesTool } from './sl-departures.js';
+import { slTripPlannerTool } from './sl-trip-planner.js';
 
 // ============================================
 // TOOL REGISTRY
@@ -25,6 +27,8 @@ const rawTools: ToolDefinition<any>[] = [
   notionTool,
   systemInfoTool,
   runAgentTool,
+  slDeparturesTool,
+  slTripPlannerTool,
 ];
 
 // Apply global rules to all tool descriptions

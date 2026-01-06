@@ -28,9 +28,13 @@ export interface AgentDefinition {
   steps?: AgentStep[];
 }
 
-// Helper to get Zod type (works with Zod v4)
+// Helper to get Zod type (works with Zod v3 and v4)
 function getZodType(schema: z.ZodType): string {
-  return (schema as unknown as { type: string }).type ?? '';
+  // Zod stores type in _def.typeName
+  const def = (schema as unknown as { _def?: { typeName?: string } })._def;
+  const typeName = def?.typeName ?? '';
+  // Convert ZodObject -> object, ZodString -> string, etc.
+  return typeName.replace('Zod', '').toLowerCase();
 }
 
 // Helper to convert Zod schema to JSON Schema for MCP protocol
@@ -77,35 +81,47 @@ function unwrapSchema(schema: z.ZodType): z.ZodType {
 }
 
 function zodTypeToJsonSchema(schema: z.ZodType): Record<string, unknown> {
+  // Capture description BEFORE unwrapping (it's on the outer optional/default wrapper)
+  const outerDescription = schema.description;
   const innerSchema = unwrapSchema(schema);
   const typeName = getZodType(innerSchema);
+  // Use outer description if available, otherwise inner
+  const description = outerDescription ?? innerSchema.description;
 
   if (typeName === 'string') {
     const result: Record<string, unknown> = { type: 'string' };
-    if (innerSchema.description) result.description = innerSchema.description;
+    if (description) result.description = description;
     return result;
   }
 
   if (typeName === 'number') {
     const result: Record<string, unknown> = { type: 'number' };
-    if (innerSchema.description) result.description = innerSchema.description;
+    if (description) result.description = description;
     return result;
   }
 
   if (typeName === 'boolean') {
-    return { type: 'boolean' };
+    const result: Record<string, unknown> = { type: 'boolean' };
+    if (description) result.description = description;
+    return result;
   }
 
   if (typeName === 'enum') {
     const enumSchema = innerSchema as z.ZodEnum<[string, ...string[]]>;
-    return { type: 'string', enum: enumSchema.options };
+    const result: Record<string, unknown> = { type: 'string', enum: enumSchema.options };
+    if (description) result.description = description;
+    return result;
   }
 
   if (typeName === 'array') {
-    return { type: 'array', items: zodTypeToJsonSchema((innerSchema as z.ZodArray<z.ZodType>).element) };
+    const result: Record<string, unknown> = { type: 'array', items: zodTypeToJsonSchema((innerSchema as z.ZodArray<z.ZodType>).element) };
+    if (description) result.description = description;
+    return result;
   }
 
-  return { type: 'string' };
+  const result: Record<string, unknown> = { type: 'string' };
+  if (description) result.description = description;
+  return result;
 }
 
 // Global rules that apply to all tools
