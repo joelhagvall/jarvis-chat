@@ -16,9 +16,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: .build
-          key: ${{ runner.os }}-spm-${{ hashFiles('Package.resolved', 'Package.swift') }}
+          key: ${{ runner.os }}-spm-v2-${{ hashFiles('Package.resolved', 'Package.swift') }}
           restore-keys: |
-            ${{ runner.os }}-spm-
+            ${{ runner.os }}-spm-v2-
 
       - name: Run tests
         run: swift test --parallel
