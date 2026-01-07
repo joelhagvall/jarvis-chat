@@ -8,9 +8,13 @@ With open-source models and MCP servers, it's easy to build AI that lives on you
 
 ## Screenshots
 
-<img src="./screenshots/2.png" alt="JARVIS Chat" width="600">
+<img src="./screenshots/2.png" alt="JARVIS fetching notes from Apple Notes via MCP tools" width="800">
 
-<img src="./screenshots/4.png" alt="JARVIS Chat" width="600">
+*Querying notes with thinking mode enabled*
+
+<img src="./screenshots/4.png" alt="JARVIS planning a transit route in Stockholm" width="800">
+
+*Planning routes with Stockholm public transit integration*
 
 ## Requirements
 
