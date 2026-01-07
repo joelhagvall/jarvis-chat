@@ -6,6 +6,12 @@ AI should be fun. Personal. Tailored. And running locally.
 
 With open-source models and MCP servers, it's easy to build AI that lives on your machine. Not in the cloud. Not generic. This is the kind of AI I think we'll all be running soon.
 
+## Screenshots
+
+<img src="./screenshots/2.png" alt="JARVIS Chat" width="600">
+
+<img src="./screenshots/4.png" alt="JARVIS Chat" width="600">
+
 ## Requirements
 
 Any machine that can run local LLMs. Apple Silicon Macs (M1-M4), Linux/Windows with a decent GPU. Modern chips like the M4 Pro handle this with ease.
